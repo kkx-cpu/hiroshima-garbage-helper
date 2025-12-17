@@ -1,0 +1,52 @@
+{
+  "schedule_rules": {
+    "Monday": ["🔥 可燃垃圾 (Burnable)"],
+    "Tuesday": [],
+    "Wednesday": {
+      "type": "alternating",
+      "odd_weeks": ["♻️ 资源垃圾 (Resources)", "🔋 有害垃圾 (Toxic)"],
+      "even_weeks": ["🥣 其他塑料 (Other Plastics)"]
+    },
+    "Thursday": {
+      "type": "monthly_rule",
+      "default": ["🔥 可燃垃圾 (Burnable)"],
+      "special": {
+        "condition": "2nd_week",
+        "item": ["🧱 不燃垃圾 (Non-burnable)"]
+      }
+    },
+    "Friday": ["🧴 可回收塑料 (Recyclable Plastic)", "🍾 PET瓶 (PET Bottles)"],
+    "Saturday": [],
+    "Sunday": []
+  },
+  "dictionary": [
+    {"item": "生垃圾 (剩饭剩菜)", "type": "🔥 可燃垃圾", "note": "请沥干水分"},
+    {"item": "蛋壳/贝壳", "type": "🔥 可燃垃圾", "note": ""},
+    {"item": "食用油 (废油)", "type": "🔥 可燃垃圾", "note": "用纸或布吸干，不能直接倒"},
+    {"item": "口罩", "type": "🔥 可燃垃圾", "note": ""},
+    {"item": "脏污的纸", "type": "🔥 可燃垃圾", "note": ""},
+    {"item": "饮料塑料瓶 (PET)", "type": "🍾 PET瓶", "note": "洗净，去盖去标签，踩扁"},
+    {"item": "洗发水/洗洁精瓶", "type": "🧴 可回收塑料", "note": "洗净"},
+    {"item": "食品托盘 (泡沫盘)", "type": "🧴 可回收塑料", "note": "建议超市回收，也可作为此项"},
+    {"item": "零食包装袋", "type": "🧴 可回收塑料", "note": "如有严重污渍则扔可燃"},
+    {"item": "杯面盒 (塑料)", "type": "🧴 可回收塑料", "note": "洗净"},
+    {"item": "塑料衣架", "type": "🥣 其他塑料", "note": "不是'可回收塑料'"},
+    {"item": "牙刷", "type": "🥣 其他塑料", "note": ""},
+    {"item": "CD/DVD光盘", "type": "🥣 其他塑料", "note": ""},
+    {"item": "塑料玩具", "type": "🥣 其他塑料", "note": "若含金属部件则扔不燃"},
+    {"item": "报纸/传单", "type": "♻️ 资源垃圾", "note": "捆扎"},
+    {"item": "纸箱 (段ボール)", "type": "♻️ 资源垃圾", "note": "压平捆扎"},
+    {"item": "空罐 (铝/铁)", "type": "♻️ 资源垃圾", "note": "洗净"},
+    {"item": "玻璃瓶 (饮料/酒)", "type": "♻️ 资源垃圾", "note": "去盖，分色投放"},
+    {"item": "平底锅/锅具", "type": "♻️ 资源垃圾", "note": "金属类"},
+    {"item": "菜刀", "type": "♻️ 资源垃圾", "note": "用厚纸包好，写上'危险'"},
+    {"item": "干电池", "type": "🔋 有害垃圾", "note": "不能混入不燃垃圾"},
+    {"item": "荧光灯管", "type": "🔋 有害垃圾", "note": "防碎，放入原包装盒"},
+    {"item": "陶瓷器 (碗/盘)", "type": "🧱 不燃垃圾", "note": "用纸包好"},
+    {"item": "玻璃杯 (非饮料瓶)", "type": "🧱 不燃垃圾", "note": "耐热玻璃也是此项"},
+    {"item": "雨伞", "type": "🧱 不燃垃圾", "note": "若超过30cm算大型，但伞骨通常按不燃收"},
+    {"item": "小型家电 (<30cm)", "type": "🧱 不燃垃圾", "note": "电吹风、熨斗等。若>30cm为大型垃圾"},
+    {"item": "大型家具/家电", "type": "🛋️ 大型垃圾", "note": "需预约 (收费)"},
+    {"item": "打火机", "type": "🧱 不燃垃圾", "note": "必须用完，单独装袋写'ライター'"}
+  ]
+}
