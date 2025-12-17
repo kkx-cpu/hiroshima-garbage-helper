@@ -2,181 +2,216 @@ import streamlit as st
 import pandas as pd
 import json
 import datetime
-import calendar
 
-# --- 页面基本设置 ---
+# --- 1. 页面配置与 CSS 样式 ---
 st.set_page_config(
-    page_title="广岛南区垃圾分类助手",
-    page_icon="🗑️",
-    layout="centered", # 手机端显示更友好
+    page_title="广岛生活助手",
+    page_icon="🍃",
+    layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# 自定义 CSS 优化手机端体验
+# 高级感 CSS：卡片阴影、圆角、字体优化
 st.markdown("""
     <style>
-    .stAlert { padding: 0.5rem; }
-    h1 { font-size: 1.8rem; }
-    h2 { font-size: 1.4rem; }
-    h3 { font-size: 1.1rem; }
+    /* 全局字体优化 */
+    .main { font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", sans-serif; }
+    
+    /* 垃圾卡片样式 */
     .garbage-card {
-        background-color: #f0f2f6;
-        padding: 15px;
-        border-radius: 10px;
-        margin-bottom: 10px;
-        border-left: 5px solid #00cc66;
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        margin-bottom: 15px;
+        border: 1px solid #f0f0f0;
+        transition: transform 0.2s;
     }
-    .big-font { font-size: 1.2rem; font-weight: bold; }
+    .garbage-card:hover { transform: translateY(-2px); }
+    
+    /* 标题样式 */
+    .card-title { font-size: 1.1rem; color: #888; margin-bottom: 5px; font-weight: 600; }
+    .garbage-name { font-size: 1.6rem; font-weight: bold; margin-bottom: 10px; color: #333; }
+    .garbage-examples { font-size: 0.9rem; color: #666; line-height: 1.5; background-color: #f8f9fa; padding: 10px; border-radius: 8px; }
+    
+    /* 颜色标签 */
+    .tag { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; color: white; margin-right: 5px; }
+    .tag-burn { background-color: #ff6b6b; } /* 可燃-红 */
+    .tag-plastic { background-color: #4ecdc4; } /* 塑料-青 */
+    .tag-resource { background-color: #95a5a6; } /* 资源-灰 */
+    .tag-toxic { background-color: #f7b731; } /* 有害-黄 */
+    .tag-other { background-color: #a55eea; } /* 其他-紫 */
+    
+    /* 搜索框美化 */
+    .stTextInput>div>div>input { border-radius: 20px; border: 1px solid #ddd; }
+    
+    /* 隐藏默认菜单 */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
-# --- 核心逻辑函数 ---
+# --- 2. 数据加载与处理逻辑 ---
 
 @st.cache_data
 def load_data():
-    """加载 JSON 数据"""
     try:
         with open('data.json', 'r', encoding='utf-8') as f:
             return json.load(f)
     except FileNotFoundError:
-        st.error("找不到 data.json 文件，请检查项目目录。")
-        return {"schedule_rules": {}, "dictionary": []}
+        return {"schedule_rules": {}, "dictionary": [], "descriptions": {}}
+
+data = load_data()
 
 def get_week_of_month(date):
-    """计算日期是当月的第几个星期几 (例如：第2个周三)"""
-    day = date.day
-    # 简单的数学计算：(日 - 1) // 7 + 1
-    return (day - 1) // 7 + 1
+    return (date.day - 1) // 7 + 1
 
-def get_garbage_for_date(target_date, rules):
-    """根据日期和规则返回垃圾类型"""
-    weekday_name = target_date.strftime("%A") # e.g., "Monday"
+def get_garbage_info(target_date):
+    """返回：(垃圾名称列表, 原始规则对象)"""
+    rules = data.get("schedule_rules", {})
+    weekday_name = target_date.strftime("%A")
     rule = rules.get(weekday_name, [])
     
-    # 1. 如果是空列表，直接返回空
-    if not rule:
-        return []
+    if not rule: return []
     
-    # 2. 如果是列表，说明是固定规则（如周一可燃）
     if isinstance(rule, list):
         return rule
     
-    # 3. 如果是字典，说明有特殊逻辑
     if isinstance(rule, dict):
         week_num = get_week_of_month(target_date)
-        
-        # 处理周三的“奇偶周”交替逻辑
         if rule.get("type") == "alternating":
-            if week_num in [1, 3, 5]:
-                return rule.get("odd_weeks", [])
-            else:
-                return rule.get("even_weeks", [])
-        
-        # 处理周四的“每月第2周不燃”逻辑
+            return rule.get("odd_weeks", []) if week_num in [1, 3, 5] else rule.get("even_weeks", [])
         if rule.get("type") == "monthly_rule":
             special = rule.get("special", {})
             if special.get("condition") == "2nd_week" and week_num == 2:
                 return special.get("item", [])
             else:
                 return rule.get("default", [])
-                
     return []
 
-def get_relative_day_text(target_date, today):
-    """返回人性化的日期描述"""
-    delta = (target_date - today).days
-    if delta == 0: return "今天"
-    if delta == 1: return "明天"
-    if delta == 2: return "后天"
-    return target_date.strftime("%m/%d")
+def get_style_class(garbage_name):
+    """根据垃圾类型返回 CSS 类名"""
+    if "可燃" in garbage_name: return "tag-burn"
+    if "塑料" in garbage_name or "PET" in garbage_name: return "tag-plastic"
+    if "资源" in garbage_name: return "tag-resource"
+    if "有害" in garbage_name: return "tag-toxic"
+    return "tag-other"
 
-# --- 主程序 ---
+def render_garbage_card(title, date_obj, garbage_list):
+    """渲染精美的 HTML 卡片"""
+    date_str = date_obj.strftime("%m/%d")
+    weekday_cn = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"][date_obj.weekday()]
+    
+    if not garbage_list:
+        html_content = f"""
+        <div class="garbage-card" style="border-left: 5px solid #ddd;">
+            <div class="card-title">{title} · {date_str} ({weekday_cn})</div>
+            <div class="garbage-name" style="color: #aaa;">☕ 无收集</div>
+            <div class="garbage-examples">无需倒垃圾，享受生活吧。</div>
+        </div>
+        """
+    else:
+        # 获取详细描述
+        main_garbage = garbage_list[0]
+        desc_map = data.get("descriptions", {})
+        # 简单的模糊匹配来找描述
+        description = "暂无详细描述"
+        for key, value in desc_map.items():
+            if key in main_garbage:
+                description = value
+                break
+        
+        style_class = get_style_class(main_garbage)
+        color_hex = "#ff6b6b" if "可燃" in main_garbage else "#4ecdc4" if "塑料" in main_garbage else "#95a5a6"
+        
+        # 拼接多个垃圾类型
+        garbage_html = ""
+        for g in garbage_list:
+             garbage_html += f"<span>{g}</span><br>"
 
-data = load_data()
-schedule_rules = data.get("schedule_rules", {})
+        html_content = f"""
+        <div class="garbage-card" style="border-left: 5px solid {color_hex};">
+            <div class="card-title">{title} · {date_str} ({weekday_cn})</div>
+            <div class="garbage-name">{garbage_html}</div>
+            <div class="garbage-examples">💡 <b>请扔：</b>{description}</div>
+        </div>
+        """
+    
+    st.markdown(html_content, unsafe_allow_html=True)
 
-st.title("🗑️ 广岛南区垃圾助手")
-st.caption("适用地区：段原、皆实町等 (南区5区分)")
+# --- 3. 主界面布局 ---
 
-# 1. 获取时间
+st.title("🍃 广岛生活助手")
+st.caption("📍 南区 (段原・皆实町区域)")
+
+# 获取日期
 now = datetime.datetime.now()
 today = now.date()
-# 为了演示效果，如果现在是晚上8点后，直接显示明天的提醒
-display_date = today + datetime.timedelta(days=1) if now.hour >= 20 else today
 tomorrow = today + datetime.timedelta(days=1)
 
-# --- 模块一：智能提醒 ---
-st.header("📢 垃圾投放提醒")
+# === 核心功能区：今天 vs 明天 ===
+st.subheader("📅 投放提醒")
+col1, col2 = st.columns(2)
 
-# 计算未来3天的垃圾
-upcoming = []
-for i in range(3): # 今天、明天、后天
-    d = today + datetime.timedelta(days=i)
-    g_list = get_garbage_for_date(d, schedule_rules)
-    if g_list:
-        upcoming.append((d, g_list))
+with col1:
+    g_today = get_garbage_info(today)
+    render_garbage_card("今天", today, g_today)
 
-if upcoming:
-    # 只显示最近的一个投放日
-    target_d, target_g = upcoming[0]
-    day_text = get_relative_day_text(target_d, today)
-    weekday_cn = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"][target_d.weekday()]
-    
-    st.info(f"**{day_text} ({weekday_cn}) 请扔：**")
-    
-    for g in target_g:
-        st.markdown(f"""
-        <div class="garbage-card">
-            <div class="big-font">{g}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    if day_text == "今天":
-        st.warning("⚠️ 请在早上 8:30 前扔出！")
-else:
-    st.success("最近三天没有垃圾收集，休息一下吧！☕")
+with col2:
+    g_tomorrow = get_garbage_info(tomorrow)
+    render_garbage_card("明天", tomorrow, g_tomorrow)
 
-# --- 模块二：分类查询 ---
+# === 功能分栏 ===
 st.markdown("---")
-st.header("🔍 怎么扔？")
-search_query = st.text_input("输入物品名称 (支持中文/日语)", placeholder="例如：电池、鸡蛋、pizza...")
+tab1, tab2, tab3 = st.tabs(["🔍 垃圾分类搜", "🗓 本周日程", "📘 投放指南"])
 
-if search_query:
-    df = pd.DataFrame(data["dictionary"])
-    # 模糊搜索 (中日文皆可)
-    result = df[df['item'].str.contains(search_query, case=False, na=False)]
-    
-    if not result.empty:
-        for _, row in result.iterrows():
-            with st.container():
-                st.markdown(f"**{row['item']}**")
-                st.markdown(f"分类：:red[**{row['type']}**]")
-                if row['note']:
-                    st.caption(f"💡 注意：{row['note']}")
-                st.divider()
-    else:
-        st.write("🤔 没找到这个物品。")
-        st.markdown("""
-        **常见归类参考：**
-        * 软塑料包装 → **可回收塑料**
-        * 硬塑料玩具/用品 → **其他塑料**
-        * 脏了洗不掉的 → **可燃垃圾**
-        """)
+# Tab 1: 搜索
+with tab1:
+    search_query = st.text_input("输入物品名称...", placeholder="例如：鸡蛋壳, 电池, pizza盒")
+    if search_query:
+        df = pd.DataFrame(data["dictionary"])
+        result = df[df['item'].str.contains(search_query, case=False, na=False)]
+        
+        if not result.empty:
+            for _, row in result.iterrows():
+                # 使用 Streamlit 原生卡片样式
+                with st.container():
+                    c1, c2 = st.columns([1, 3])
+                    with c1:
+                        st.markdown(f"**{row['item']}**")
+                    with c2:
+                        st.markdown(f":red[{row['type']}]")
+                        if row['note']:
+                            st.caption(f"注意：{row['note']}")
+                    st.divider()
+        else:
+            st.info("🤔 词典里没找到，请参考下方通用规则。")
 
-# --- 模块三：本周日历概览 ---
-with st.expander("查看本周完整日程"):
-    week_schedule = []
+# Tab 2: 本周日程
+with tab2:
     for i in range(7):
         d = today + datetime.timedelta(days=i)
-        g = get_garbage_for_date(d, schedule_rules)
+        g = get_garbage_info(d)
         d_str = d.strftime("%m/%d")
         w_str = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"][d.weekday()]
         
-        # 格式化输出
-        content = " / ".join(g) if g else "无收集"
-        week_schedule.append(f"**{d_str} ({w_str})**: {content}")
-    
-    st.markdown("\n\n".join(week_schedule))
+        if g:
+            st.markdown(f"**{d_str} ({w_str})** : {', '.join(g)}")
+        else:
+            st.markdown(f"<span style='color:#ccc'>{d_str} ({w_str}) : 无收集</span>", unsafe_allow_html=True)
 
+# Tab 3: 指南
+with tab3:
+    st.markdown("""
+    #### ⚠️ 常见错误提示
+    * **食用油**：不能直接倒下水道，需用报纸吸干或凝固后扔 **可燃垃圾**。
+    * **喷雾罐**：必须用完，不要打孔，扔 **资源垃圾** 或 **不燃垃圾**（视具体规定）。
+    * **大型垃圾**：最长边超过 30cm 的通常需要预约收费回收。
+    
+    #### 🕒 投放时间
+    请在收集日当天 **早上 8:30 前** 将垃圾扔到指定收集点。
+    """)
+
+# 底部
 st.markdown("---")
-st.caption("数据来源：广岛市环境局 (2025年度版)")
+st.caption("Designed for Hiroshima Residents | Data: 2025 Edition")
